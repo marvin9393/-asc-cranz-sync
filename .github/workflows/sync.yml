@@ -28,17 +28,17 @@ jobs:
           playwright install chromium --with-deps
 
       # ── 3. SSH-Tunnel zur Datenbank ─────────────────────────────────────
-      - name: SSH-Schlüssel einrichten
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/asc_actions
-          chmod 600 ~/.ssh/asc_actions
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      - name: SSH-Agent mit Key starten
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Webserver zu known_hosts hinzufügen
+        run: ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: SSH-Tunnel starten (Port 3306 → Webserver localhost:3306)
         run: |
           ssh -f -N \
-            -i ~/.ssh/asc_actions \
             -o IdentitiesOnly=yes \
             -o ServerAliveInterval=60 \
             -o ExitOnForwardFailure=yes \
