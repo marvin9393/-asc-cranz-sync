@@ -64,9 +64,32 @@ def scrape_teams(page: Page) -> list[dict]:
     """
     log.info("Lade Vereinsseite: %s", config.VEREIN_URL)
     page.goto(config.VEREIN_URL, wait_until="networkidle")
+    page.wait_for_timeout(3000)
 
-    # AngularJS braucht Zeit zum Rendern nach networkidle
-    page.wait_for_timeout(6000)
+    # ── Cookie-Consent wegklicken ────────────────────────────────────────
+    for selector in [
+        "button#usercentrics-accept-all",
+        "button[data-testid='uc-accept-all-button']",
+        "button:has-text('Alle akzeptieren')",
+        "button:has-text('Akzeptieren')",
+        ".uc-btn-accept-all",
+        "#accept-all-button",
+    ]:
+        try:
+            btn = page.query_selector(selector)
+            if btn and btn.is_visible():
+                btn.click()
+                log.info("Cookie-Banner geschlossen (%s)", selector)
+                page.wait_for_timeout(3000)
+                break
+        except Exception:
+            pass
+
+    # ── Warten bis Mannschafts-Content geladen ist ───────────────────────
+    try:
+        page.wait_for_selector("a[href*='/mannschaft/']", timeout=15000)
+    except PWTimeout:
+        log.warning("Mannschafts-Links nicht gefunden – prüfe Debug-HTML")
 
     # Debug: Seite als HTML speichern damit wir Selektoren prüfen können
     html_snippet = page.content()
@@ -74,15 +97,13 @@ def scrape_teams(page: Page) -> list[dict]:
         f.write(html_snippet)
     log.info("DEBUG: Seiteninhalt gespeichert (%d Zeichen)", len(html_snippet))
 
-    # Alle Links die auf Mannschaftsseiten zeigen
     links = page.query_selector_all("a[href*='/mannschaft/']")
     log.info("DEBUG: %d Mannschafts-Links gefunden", len(links))
 
-    # Fallback: alle Links auf der Seite loggen die relevant aussehen
     if not links:
         all_links = page.query_selector_all("a[href]")
         log.info("DEBUG: Insgesamt %d Links auf der Seite", len(all_links))
-        for l in all_links[:20]:
+        for l in all_links[:30]:
             href = l.get_attribute("href") or ""
             if any(k in href for k in ["mannschaft", "verein", "team"]):
                 log.info("  Link: %s | Text: %s", href, l.inner_text()[:50])
