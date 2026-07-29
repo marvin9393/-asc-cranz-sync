@@ -131,16 +131,26 @@ def scrape_teams(page: Page) -> list[dict]:
             continue
         seen.add(href)
 
-        log.info("DEBUG Link: %s | Text: %s", href[:120], text[:40])
+        # Nur Herren / Damen / Frauen – keine Junioren, keine Jugend
+        if not any(k in text.lower() for k in ["herren", "damen", "frauen"]):
+            continue
 
-        # fußball.de: verschiedene URL-Formate für Mannschafts-ID
-        m = re.search(r"(?:mannschaftsId|teamId)/([A-Z0-9]+)", href) \
-            or re.search(r"/mannschaft/[^/]+/-/(?:saison/\w+/)?(?:id|mannschaftsId)/([A-Z0-9]+)", href) \
-            or re.search(r"[-/]([A-Z0-9]{20,})", href)
+        # Nur ASC Cranz Mannschaften (keine JSG / FSG / andere Vereine)
+        if "asc-cranz" not in href.lower():
+            continue
+
+        # fußball.de: team-id/XXXX
+        m = re.search(r"team-id/([A-Za-z0-9]+)", href)
         if not m:
-            log.warning("  → Keine ID gefunden in: %s", href)
+            log.warning("  → Keine ID gefunden in: %s", href[:120])
             continue
         mid = m.group(1)
+
+        gender = "Damen" if any(k in text.lower() for k in ["damen", "frauen"]) else "Herren"
+        full_url = href if href.startswith("http") else BASE_URL + href
+
+        teams.append({"fussball_id": mid, "name": text, "gender": gender, "url": full_url})
+        log.info("  Mannschaft gefunden: %s (%s) [%s]", text, gender, mid)
 
         # Geschlecht anhand des Namens bestimmen
         gender = "Damen" if "damen" in text.lower() or "frauen" in text.lower() else "Herren"
