@@ -113,7 +113,12 @@ def _upsert_standing(f, team_id: str, competition: str, season: str,
 
 # ─── Cookie-Consent ───────────────────────────────────────────────────────────
 
+_cookies_accepted = False
+
 def _accept_cookies(page: Page):
+    global _cookies_accepted
+    if _cookies_accepted:
+        return
     try:
         page.wait_for_timeout(3000)
         page.evaluate("""() => {
@@ -126,7 +131,8 @@ def _accept_cookies(page: Page):
                 }
             });
         }""")
-        page.wait_for_timeout(4000)
+        page.wait_for_timeout(2000)
+        _cookies_accepted = True
         log.info("Cookie-Consent gesetzt")
     except Exception as e:
         log.warning("Cookie-Consent Fehler: %s", e)
@@ -205,13 +211,13 @@ def scrape_matches(f, page: Page, team: dict):
             dbg.write(page.content())
         return
 
-    # Alle Spiele laden ("Mehr laden"-Pagination)
-    while True:
+    # Alle Spiele laden ("Mehr laden"-Pagination, max 20 Seiten)
+    for _ in range(20):
         btn = page.query_selector("a.button-load-more, .load-more-button, a[data-ajax*='offset']")
         if not btn:
             break
         btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1500)
 
     current_date: Optional[datetime] = None
     current_competition = team["name"]
