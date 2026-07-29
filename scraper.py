@@ -66,24 +66,37 @@ def scrape_teams(page: Page) -> list[dict]:
     page.goto(config.VEREIN_URL, wait_until="networkidle")
     page.wait_for_timeout(3000)
 
-    # ── Cookie-Consent wegklicken ────────────────────────────────────────
-    for selector in [
-        "button#usercentrics-accept-all",
-        "button[data-testid='uc-accept-all-button']",
-        "button:has-text('Alle akzeptieren')",
-        "button:has-text('Akzeptieren')",
-        ".uc-btn-accept-all",
-        "#accept-all-button",
-    ]:
-        try:
-            btn = page.query_selector(selector)
-            if btn and btn.is_visible():
-                btn.click()
-                log.info("Cookie-Banner geschlossen (%s)", selector)
-                page.wait_for_timeout(3000)
-                break
-        except Exception:
-            pass
+    # ── Cookie-Consent wegklicken (Usercentrics Shadow DOM) ─────────────
+    try:
+        # Usercentrics lädt asynchron – kurz warten
+        page.wait_for_timeout(3000)
+
+        # Über JavaScript direkt die Usercentrics API aufrufen
+        page.evaluate("""
+            () => {
+                // Methode 1: Usercentrics API
+                if (typeof UC_UI !== 'undefined') {
+                    UC_UI.acceptAllConsents();
+                    return;
+                }
+                // Methode 2: Button im Shadow DOM suchen
+                const hosts = document.querySelectorAll('*');
+                for (const host of hosts) {
+                    if (host.shadowRoot) {
+                        const btn = host.shadowRoot.querySelector(
+                            'button[data-testid="uc-accept-all-button"], ' +
+                            '.uc-btn-accept-all, ' +
+                            'button:last-child'
+                        );
+                        if (btn) { btn.click(); return; }
+                    }
+                }
+            }
+        """)
+        log.info("Cookie-Consent über JS gesetzt")
+        page.wait_for_timeout(4000)
+    except Exception as e:
+        log.warning("Cookie-Consent konnte nicht gesetzt werden: %s", e)
 
     # ── Warten bis Mannschafts-Content geladen ist ───────────────────────
     try:
