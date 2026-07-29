@@ -199,7 +199,8 @@ def scrape_matches(f, page: Page, team: dict):
       tr (Spielzeile)     → td.column-club .club-name (Heim/Gast)
     """
     log.info("Lade Spielplan: %s", team["name"])
-    url = f"{BASE_URL}/ajax.team.matchplan/-/team-id/{team['fussball_id']}"
+    # max/100 lädt alle Spiele auf einmal – keine Pagination nötig
+    url = f"{BASE_URL}/ajax.team.matchplan/-/max/100/team-id/{team['fussball_id']}"
     page.goto(url, wait_until="domcontentloaded", timeout=60000)
     _accept_cookies(page)
 
@@ -211,13 +212,7 @@ def scrape_matches(f, page: Page, team: dict):
             dbg.write(page.content())
         return
 
-    # Alle Spiele laden ("Mehr laden"-Pagination, max 20 Seiten)
-    for _ in range(20):
-        btn = page.query_selector("a.button-load-more, .load-more-button, a[data-ajax*='offset']")
-        if not btn:
-            break
-        btn.click()
-        page.wait_for_timeout(1500)
+    # Alle Spiele in einem Request geladen (max/100) – kein "Mehr laden" nötig
 
     current_date: Optional[datetime] = None
     current_competition = team["name"]
@@ -233,9 +228,14 @@ def scrape_matches(f, page: Page, team: dict):
         if "row-competition" in cls:
             date_el = row.query_selector(".column-date")
             if date_el:
-                raw = re.sub(r"[A-Za-zÄÖÜäöüß,\.]+\s*", "", date_el.inner_text()).strip()
-                raw = re.sub(r"\s*\|\s*", " ", raw).strip()
-                current_date = _parse_date(raw)
+                raw = date_el.inner_text()
+                # Format: "Do, 30.07.26 | 20:15" → direkt Datum+Zeit extrahieren
+                m = re.search(r'(\d{1,2}\.\d{2}\.\d{2,4})\D{0,5}(\d{2}:\d{2})', raw)
+                if m:
+                    current_date = _parse_date(f"{m.group(1)} {m.group(2)}")
+                else:
+                    m2 = re.search(r'(\d{1,2}\.\d{2}\.\d{2,4})', raw)
+                    current_date = _parse_date(m2.group(1)) if m2 else None
             comp_el = row.query_selector(".column-team a")
             if comp_el:
                 current_competition = comp_el.inner_text().strip()
