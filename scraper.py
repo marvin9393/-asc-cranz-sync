@@ -131,9 +131,14 @@ def scrape_teams(page: Page) -> list[dict]:
             continue
         seen.add(href)
 
-        # fußball.de mannschaftsId aus URL extrahieren
-        m = re.search(r"mannschaftsId/([A-Z0-9]+)", href)
+        log.info("DEBUG Link: %s | Text: %s", href[:120], text[:40])
+
+        # fußball.de: verschiedene URL-Formate für Mannschafts-ID
+        m = re.search(r"(?:mannschaftsId|teamId)/([A-Z0-9]+)", href) \
+            or re.search(r"/mannschaft/[^/]+/-/(?:saison/\w+/)?(?:id|mannschaftsId)/([A-Z0-9]+)", href) \
+            or re.search(r"[-/]([A-Z0-9]{20,})", href)
         if not m:
+            log.warning("  → Keine ID gefunden in: %s", href)
             continue
         mid = m.group(1)
 
