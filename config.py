@@ -13,13 +13,13 @@ DB_USER     = os.environ.get("DB_USER", "dein_user")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "dein_passwort")
 
 # ─── fußball.de ──────────────────────────────────────────────
-VEREIN_ID = "00ES8GN9VS000000VS5489B3VSCOA7K7"
-VEREIN_NAME = "asc-cranz-estebruegge-hamburger-fv"
-SAISON = "2425"
+VEREIN_ID   = "00ES8GN7SS00004PVV0AG08LVUPGND5I"
+VEREIN_NAME = "asc-cranz-estebruegge-niedersachsen"
+SAISON      = "2526"
 
-VEREIN_URL = (
+VEREIN_URL  = (
     f"https://www.fussball.de/verein/{VEREIN_NAME}/-/"
-    f"saison/{SAISON}/vereinId/{VEREIN_ID}"
+    f"id/{VEREIN_ID}"
 )
 
 # ─── Scheduler ───────────────────────────────────────────────
