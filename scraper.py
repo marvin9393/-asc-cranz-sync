@@ -186,76 +186,73 @@ def _parse_date(raw: str) -> Optional[datetime]:
 
 
 def scrape_matches(f, page: Page, team: dict):
+    """
+    Spielplan via AJAX-Endpunkt: /ajax.team.matchplan/-/team-id/{id}
+    HTML-Struktur:
+      tr.row-competition  → Datum + Wettbewerbsname
+      tr (Spielzeile)     → td.column-club .club-name (Heim/Gast)
+    """
     log.info("Lade Spielplan: %s", team["name"])
-    # Direkte Spielplan-URL (abweichend von der Mannschaftsseite)
-    spielplan_url = f"{BASE_URL}/spielplan/-/mode/PAGE/team-id/{team['fussball_id']}"
-    page.goto(spielplan_url, wait_until="domcontentloaded", timeout=60000)
+    url = f"{BASE_URL}/ajax.team.matchplan/-/team-id/{team['fussball_id']}"
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
     _accept_cookies(page)
 
-    # Warten bis AngularJS die Tabelle gerendert hat
     try:
-        page.wait_for_selector("table.standard-liste tbody tr", timeout=15000)
+        page.wait_for_selector("table.table-striped tbody tr", timeout=15000)
     except PWTimeout:
         log.warning("  Spielplan-Tabelle nicht gefunden – speichere Debug-HTML")
         with open(f"/tmp/fussball_debug_{team['fussball_id']}.html", "w", encoding="utf-8") as dbg:
             dbg.write(page.content())
         return
 
-    competition = team["name"]
-    el = page.query_selector(".competition-name, .headline-competition, h1")
-    if el:
-        competition = el.inner_text().strip()
+    # Alle Spiele laden ("Mehr laden"-Pagination)
+    while True:
+        btn = page.query_selector("a.button-load-more, .load-more-button, a[data-ajax*='offset']")
+        if not btn:
+            break
+        btn.click()
+        page.wait_for_timeout(2000)
 
-    rows = page.query_selector_all("table.standard-liste tbody tr")
-
+    current_date: Optional[datetime] = None
+    current_competition = team["name"]
     match_count = 0
-    for row in rows:
-        cells = row.query_selector_all("td")
-        texts = [c.inner_text().strip() for c in cells]
-        if len(texts) < 4:
+
+    for row in page.query_selector_all("table.table-striped tbody tr"):
+        cls = row.get_attribute("class") or ""
+
+        if "row-headline" in cls:
             continue
 
-        # Match-ID aus Link ermitteln
-        link = row.query_selector("a[href*='spiel']")
-        mid_m = re.search(r"spielId/([A-Za-z0-9]+)", link.get_attribute("href") or "") if link else None
+        # Wettbewerbs-Zeile: Datum + Staffelname
+        if "row-competition" in cls:
+            date_el = row.query_selector(".column-date")
+            if date_el:
+                raw = re.sub(r"[A-Za-zÄÖÜäöüß,\.]+\s*", "", date_el.inner_text()).strip()
+                raw = re.sub(r"\s*\|\s*", " ", raw).strip()
+                current_date = _parse_date(raw)
+            comp_el = row.query_selector(".column-team a")
+            if comp_el:
+                current_competition = comp_el.inner_text().strip()
+            continue
 
-        # fußball.de Struktur: [Spieltag, Datum, Heimteam, Ergebnis, Gastteam, ...]
-        if len(texts) >= 5:
-            match_day_raw = re.sub(r"\D", "", texts[0])
-            match_day  = int(match_day_raw) if match_day_raw else match_count + 1
-            match_date = _parse_date(texts[1])
-            home       = texts[2].strip()
-            result_raw = texts[3].strip()
-            away       = texts[4].strip()
+        # Spielzeile: Heim / Gast aus separaten club-Spalten
+        home_el = row.query_selector("td.column-club:not(.no-border) .club-name")
+        away_el = row.query_selector("td.column-club.no-border .club-name")
+        if not home_el or not away_el:
+            continue
 
-            hg, ag, status = None, None, "scheduled"
-            m = re.match(r"^(\d+)\s*:\s*(\d+)$", result_raw)
-            if m:
-                hg, ag, status = int(m.group(1)), int(m.group(2)), "finished"
-        else:
-            # Fallback: Heim - Gast in einer Zelle
-            home, away, match_day = "", "", match_count + 1
-            match_date = _parse_date(texts[0])
-            for t in texts:
-                if " - " in t and not re.search(r"^\d", t):
-                    parts = t.split(" - ", 1)
-                    home, away = parts[0].strip(), parts[1].strip()
-                    break
-            if not home:
-                continue
-            hg, ag, status = None, None, "scheduled"
-            for t in texts:
-                m = re.match(r"^(\d+)\s*:\s*(\d+)$", t)
-                if m:
-                    hg, ag, status = int(m.group(1)), int(m.group(2)), "finished"
-                    break
-
+        home = home_el.inner_text().strip()
+        away = away_el.inner_text().strip()
         if not home or not away:
             continue
 
-        match_id = mid_m.group(1) if mid_m else f"{team['fussball_id']}_{match_day}_{home[:10]}"
-        _upsert_match(f, match_id, team["fussball_id"], competition,
-                      match_day, match_date, home, away, hg, ag, status)
+        score_link = row.query_selector(".column-score a[href*='/spiel/']")
+        href = score_link.get_attribute("href") if score_link else ""
+        mid_m = re.search(r"/spiel/([A-Za-z0-9]+)$", href or "")
+        match_id = mid_m.group(1) if mid_m else f"{team['fussball_id']}_{match_count}_{home[:10]}"
+
+        _upsert_match(f, match_id, team["fussball_id"], current_competition,
+                      match_count + 1, current_date, home, away, None, None, "scheduled")
         match_count += 1
 
     log.info("  ✓ %d Spiele im Spielplan gespeichert", match_count)
