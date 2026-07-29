@@ -64,11 +64,30 @@ def scrape_teams(page: Page) -> list[dict]:
     """
     log.info("Lade Vereinsseite: %s", config.VEREIN_URL)
     page.goto(config.VEREIN_URL, wait_until="networkidle")
-    time.sleep(config.REQUEST_DELAY_SEC)
+
+    # AngularJS braucht Zeit zum Rendern nach networkidle
+    page.wait_for_timeout(6000)
+
+    # Debug: Seite als HTML speichern damit wir Selektoren prüfen können
+    html_snippet = page.content()
+    with open("/tmp/fussball_debug.html", "w") as f:
+        f.write(html_snippet)
+    log.info("DEBUG: Seiteninhalt gespeichert (%d Zeichen)", len(html_snippet))
+
+    # Alle Links die auf Mannschaftsseiten zeigen
+    links = page.query_selector_all("a[href*='/mannschaft/']")
+    log.info("DEBUG: %d Mannschafts-Links gefunden", len(links))
+
+    # Fallback: alle Links auf der Seite loggen die relevant aussehen
+    if not links:
+        all_links = page.query_selector_all("a[href]")
+        log.info("DEBUG: Insgesamt %d Links auf der Seite", len(all_links))
+        for l in all_links[:20]:
+            href = l.get_attribute("href") or ""
+            if any(k in href for k in ["mannschaft", "verein", "team"]):
+                log.info("  Link: %s | Text: %s", href, l.inner_text()[:50])
 
     teams = []
-    # Mannschafts-Links auf der Vereinsseite
-    links = page.query_selector_all("a[href*='/mannschaft/']")
 
     seen = set()
     for link in links:

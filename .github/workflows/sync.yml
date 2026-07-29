@@ -57,3 +57,11 @@ jobs:
           DB_USER:     ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: python scraper.py
+
+      - name: Debug-HTML hochladen (bei Fehler)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-html
+          path: /tmp/fussball_debug.html
+          if-no-files-found: ignore
