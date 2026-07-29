@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt
           playwright install chromium --with-deps
 
-      # ── 3. SSH-Tunnel zur Datenbank ─────────────────────────────────────
+      # ── 3. SSH-Schlüssel einrichten ─────────────────────────────────────
       - name: SSH-Schlüssel einrichten
         run: |
           mkdir -p ~/.ssh
@@ -35,28 +35,25 @@ jobs:
           chmod 600 ~/.ssh/asc_actions
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: SSH-Tunnel starten (Port 3306 → Webserver localhost:3306)
-        run: |
-          ssh -f -N \
-            -i ~/.ssh/asc_actions \
-            -o IdentitiesOnly=yes \
-            -o ServerAliveInterval=60 \
-            -o ExitOnForwardFailure=yes \
-            -L 13306:127.0.0.1:3306 \
-            -p ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
-          echo "Tunnel gestartet"
-          sleep 2
-
       # ── 4. Synchronisation ausführen ────────────────────────────────────
-      - name: Scraper ausführen
-        env:
-          DB_HOST:     "127.0.0.1"
-          DB_PORT:     "13306"           # lokaler Tunnel-Port
-          DB_NAME:     ${{ secrets.DB_NAME }}
-          DB_USER:     ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      - name: Scraper ausführen (generiert SQL-Datei)
         run: python scraper.py
+
+      # ── 5. SQL auf Server importieren ───────────────────────────────────
+      - name: SQL-Datei auf Server kopieren
+        run: |
+          scp -i ~/.ssh/asc_actions \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            /tmp/asc_data.sql \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/asc_data.sql
+
+      - name: SQL auf Server importieren
+        run: |
+          ssh -i ~/.ssh/asc_actions \
+            -o IdentitiesOnly=yes \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "mysql -u ${{ secrets.DB_USER }} -p'${{ secrets.DB_PASSWORD }}' ${{ secrets.DB_NAME }} < /tmp/asc_data.sql && echo 'Import erfolgreich' && rm /tmp/asc_data.sql"
 
       - name: Debug-HTML hochladen (bei Fehler)
         if: always()
