@@ -63,7 +63,7 @@ def scrape_teams(page: Page) -> list[dict]:
     Gibt Liste mit {fussball_id, name, gender, url} zurück.
     """
     log.info("Lade Vereinsseite: %s", config.VEREIN_URL)
-    page.goto(config.VEREIN_URL, wait_until="networkidle")
+    page.goto(config.VEREIN_URL, wait_until="domcontentloaded", timeout=60000)
     page.wait_for_timeout(3000)
 
     # ── Cookie-Consent wegklicken (Usercentrics Shadow DOM) ─────────────
@@ -153,7 +153,7 @@ def scrape_teams(page: Page) -> list[dict]:
 def scrape_matches(page: Page, team: Team, team_url: str):
     """Scrapt Spielplan und Ergebnisse für eine Mannschaft."""
     log.info("Lade Spielplan für: %s", team.name)
-    page.goto(team_url, wait_until="networkidle")
+    page.goto(team_url, wait_until="domcontentloaded", timeout=60000)
     time.sleep(config.REQUEST_DELAY_SEC)
 
     db = SessionLocal()
@@ -261,7 +261,7 @@ def scrape_standing(page: Page, team: Team, team_url: str):
     # Tabellen-Tab auf fußball.de
     tabelle_url = team_url.rstrip("/") + "#tab=tabelle"
     log.info("Lade Tabelle für: %s", team.name)
-    page.goto(tabelle_url, wait_until="networkidle")
+    page.goto(tabelle_url, wait_until="domcontentloaded", timeout=60000)
     time.sleep(config.REQUEST_DELAY_SEC)
 
     # Tabellen-Tab klicken falls vorhanden
