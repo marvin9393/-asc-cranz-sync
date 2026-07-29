@@ -187,20 +187,19 @@ def _parse_date(raw: str) -> Optional[datetime]:
 
 def scrape_matches(f, page: Page, team: dict):
     log.info("Lade Spielplan: %s", team["name"])
-    page.goto(team["url"], wait_until="domcontentloaded", timeout=60000)
+    # Direkte Spielplan-URL (abweichend von der Mannschaftsseite)
+    spielplan_url = f"{BASE_URL}/spielplan/-/mode/PAGE/team-id/{team['fussball_id']}"
+    page.goto(spielplan_url, wait_until="domcontentloaded", timeout=60000)
     _accept_cookies(page)
-    page.wait_for_timeout(3000)
 
-    # Spielplan-Tab anklicken (analog zu scrape_standing → Tabelle-Tab)
-    spielplan_tab = page.query_selector(
-        "a[href*='spielplan'], button:has-text('Spielplan'), "
-        ".tabs a:has-text('Spielplan'), .tab-navigation a:has-text('Spielplan')"
-    )
-    if spielplan_tab:
-        spielplan_tab.click()
-        page.wait_for_load_state("domcontentloaded")
-        page.wait_for_timeout(2000)
-        log.info("  Spielplan-Tab geöffnet")
+    # Warten bis AngularJS die Tabelle gerendert hat
+    try:
+        page.wait_for_selector("table.standard-liste tbody tr", timeout=15000)
+    except PWTimeout:
+        log.warning("  Spielplan-Tabelle nicht gefunden – speichere Debug-HTML")
+        with open(f"/tmp/fussball_debug_{team['fussball_id']}.html", "w", encoding="utf-8") as dbg:
+            dbg.write(page.content())
+        return
 
     competition = team["name"]
     el = page.query_selector(".competition-name, .headline-competition, h1")
@@ -208,14 +207,6 @@ def scrape_matches(f, page: Page, team: dict):
         competition = el.inner_text().strip()
 
     rows = page.query_selector_all("table.standard-liste tbody tr")
-    if not rows:
-        rows = page.query_selector_all("tr[class*='match'], tr[class*='spiel'], .match-row")
-
-    if not rows:
-        debug_path = f"/tmp/fussball_debug_{team['fussball_id']}.html"
-        with open(debug_path, "w", encoding="utf-8") as dbg:
-            dbg.write(page.content())
-        log.warning("  Keine Tabellenzeilen gefunden – HTML gespeichert: %s", debug_path)
 
     match_count = 0
     for row in rows:
