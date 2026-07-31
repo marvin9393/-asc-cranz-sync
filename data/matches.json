@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-31T12:04:26.878894",
+  "generated_at": "2026-07-31T14:06:37.526652",
   "teams": [
     {
       "fussball_id": "011MIAHS04000000VTVG0001VTR8C1K7",
@@ -524,22 +524,10 @@
       "fussball_match_id": "031IHCNSAK000000VS5489BTVSRD0UH9",
       "team_fussball_id": "011MIB9FK0000000VTVG0001VTR8C1K7",
       "competition": "Kreispokal",
-      "match_day": 1,
-      "match_date": "2026-08-02 13:00:00",
+      "match_day": 4,
+      "match_date": "2026-08-18 20:00:00",
       "home_team": "Schwinger SC",
       "away_team": "ASC Cranz-Estebrügge II",
-      "home_goals": null,
-      "away_goals": null,
-      "status": "scheduled"
-    },
-    {
-      "fussball_match_id": "031CELND2S000000VS5489BTVUS470OH",
-      "team_fussball_id": "011MIB9FK0000000VTVG0001VTR8C1K7",
-      "competition": "2.Kreisklasse",
-      "match_day": 2,
-      "match_date": "2026-08-13 20:00:00",
-      "home_team": "ASC Cranz-Estebrügge II",
-      "away_team": "VfL Güldenstern Stade III",
       "home_goals": null,
       "away_goals": null,
       "status": "scheduled"
@@ -552,18 +540,6 @@
       "match_date": "2026-08-16 12:30:00",
       "home_team": "ASC Cranz-Estebrügge II",
       "away_team": "VfL Güldenstern Stade III",
-      "home_goals": null,
-      "away_goals": null,
-      "status": "scheduled"
-    },
-    {
-      "fussball_match_id": "031IHCNSAK000000VS5489BTVSRD0UH9",
-      "team_fussball_id": "011MIB9FK0000000VTVG0001VTR8C1K7",
-      "competition": "Kreispokal",
-      "match_day": 4,
-      "match_date": "2026-08-18 20:00:00",
-      "home_team": "Schwinger SC",
-      "away_team": "ASC Cranz-Estebrügge II",
       "home_goals": null,
       "away_goals": null,
       "status": "scheduled"
