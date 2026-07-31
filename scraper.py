@@ -363,6 +363,18 @@ def run_sync():
             browser.close()
 
     with open(JSON_FILE, "w", encoding="utf-8") as jf:
+        # Verlegte Spiele: gleiche fussball_match_id → neuesten Termin behalten
+        seen, deduped = {}, []
+        for m in data["matches"]:
+            mid = m["fussball_match_id"]
+            if mid not in seen:
+                seen[mid] = len(deduped)
+                deduped.append(m)
+            else:
+                existing = deduped[seen[mid]]
+                if (m["match_date"] or "") > (existing["match_date"] or ""):
+                    deduped[seen[mid]] = m
+        data["matches"] = deduped
         json.dump(data, jf, ensure_ascii=False, indent=2)
 
     log.info("SQL-Datei generiert: %s", SQL_FILE)
