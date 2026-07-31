@@ -55,14 +55,21 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "mysql -u ${{ secrets.DB_USER }} -p'${{ secrets.DB_PASSWORD }}' ${{ secrets.DB_NAME }} < /tmp/asc_data.sql && echo 'Import erfolgreich' && rm /tmp/asc_data.sql"
 
-      # ── 6. JSON auf Server kopieren ─────────────────────────────────────
-      - name: JSON-Datei auf Server kopieren
+      # ── 6. JSON in öffentlichen Webspace-Ordner kopieren ────────────────
+      - name: /data/-Ordner auf Server anlegen (falls nicht vorhanden)
+        run: |
+          ssh -i ~/.ssh/asc_actions \
+            -o IdentitiesOnly=yes \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "mkdir -p ${{ secrets.WEB_ROOT }}/data"
+
+      - name: JSON-Datei in Webspace kopieren
         run: |
           scp -i ~/.ssh/asc_actions \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=no \
             /tmp/asc_data.json \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.JSON_PATH }}
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WEB_ROOT }}/data/matches.json
 
       - name: Debug-HTML hochladen (bei Fehler)
         if: always()
