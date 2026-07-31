@@ -9,6 +9,8 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       # ── 1. Code auschecken ──────────────────────────────────────────────
@@ -62,6 +64,7 @@ jobs:
           cp /tmp/asc_data.json data/matches.json
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git add data/matches.json
           git diff --cached --quiet || git commit -m "chore: matches.json aktualisiert [$(date -u '+%Y-%m-%d %H:%M UTC')]"
           git push
