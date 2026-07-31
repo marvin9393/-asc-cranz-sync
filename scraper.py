@@ -1,10 +1,10 @@
 """
 Scraper für fußball.de – ASC Cranz Estebruegge
-Scrapt Daten und generiert eine SQL-Datei zum Import auf dem Server.
+Scrapt Daten und generiert eine SQL- und JSON-Datei zum Import auf dem Server.
 """
 
+import json
 import re
-import time
 import logging
 from datetime import datetime
 from typing import Optional
@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 BASE_URL  = "https://www.fussball.de"
 SQL_FILE  = "/tmp/asc_data.sql"
+JSON_FILE = "/tmp/asc_data.json"
 
 
 # ─── SQL-Datei Hilfsfunktionen ────────────────────────────────────────────────
@@ -72,15 +73,16 @@ def _write_header(f):
 ) CHARACTER SET utf8mb4;\n\n""")
 
 
-def _upsert_team(f, fussball_id: str, name: str, gender: str):
+def _upsert_team(f, data: dict, fussball_id: str, name: str, gender: str):
     f.write(
         "INSERT INTO teams (fussball_id, name, gender) VALUES "
         f"({_esc(fussball_id)}, {_esc(name)}, {_esc(gender)}) "
         "ON DUPLICATE KEY UPDATE name=VALUES(name), gender=VALUES(gender);\n"
     )
+    data["teams"].append({"fussball_id": fussball_id, "name": name, "gender": gender})
 
 
-def _upsert_match(f, match_id: str, team_id: str, competition: str,
+def _upsert_match(f, data: dict, match_id: str, team_id: str, competition: str,
                   match_day: int, match_date, home: str, away: str,
                   hg, ag, status: str):
     md = f"'{match_date.strftime('%Y-%m-%d %H:%M:%S')}'" if match_date else "NULL"
@@ -94,9 +96,21 @@ def _upsert_match(f, match_id: str, team_id: str, competition: str,
         "away_goals=VALUES(away_goals), status=VALUES(status), "
         "match_date=COALESCE(VALUES(match_date), match_date);\n"
     )
+    data["matches"].append({
+        "fussball_match_id":  match_id,
+        "team_fussball_id":   team_id,
+        "competition":        competition,
+        "match_day":          match_day,
+        "match_date":         match_date.strftime("%Y-%m-%d %H:%M:%S") if match_date else None,
+        "home_team":          home,
+        "away_team":          away,
+        "home_goals":         hg,
+        "away_goals":         ag,
+        "status":             status,
+    })
 
 
-def _upsert_standing(f, team_id: str, competition: str, season: str,
+def _upsert_standing(f, data: dict, team_id: str, competition: str, season: str,
                      rank: int, team_name: str, played: int, wins: int,
                      draws: int, losses: int, gf: int, ga: int, points: int):
     f.write(
@@ -109,6 +123,20 @@ def _upsert_standing(f, team_id: str, competition: str, season: str,
         "goals_for=VALUES(goals_for), goals_against=VALUES(goals_against), "
         "points=VALUES(points);\n"
     )
+    data["standings"].append({
+        "team_fussball_id": team_id,
+        "competition":      competition,
+        "season":           season,
+        "rank":             rank,
+        "team_name":        team_name,
+        "played":           played,
+        "wins":             wins,
+        "draws":            draws,
+        "losses":           losses,
+        "goals_for":        gf,
+        "goals_against":    ga,
+        "points":           points,
+    })
 
 
 # ─── Cookie-Consent ───────────────────────────────────────────────────────────
@@ -191,7 +219,7 @@ def _parse_date(raw: str) -> Optional[datetime]:
     return None
 
 
-def scrape_matches(f, page: Page, team: dict):
+def scrape_matches(f, data: dict, page: Page, team: dict):
     """
     Spielplan via AJAX-Endpunkt: /ajax.team.matchplan/-/team-id/{id}
     HTML-Struktur:
@@ -257,7 +285,7 @@ def scrape_matches(f, page: Page, team: dict):
         mid_m = re.search(r"/spiel/([A-Za-z0-9]+)$", href or "")
         match_id = mid_m.group(1) if mid_m else f"{team['fussball_id']}_{match_count}_{home[:10]}"
 
-        _upsert_match(f, match_id, team["fussball_id"], current_competition,
+        _upsert_match(f, data, match_id, team["fussball_id"], current_competition,
                       match_count + 1, current_date, home, away, None, None, "scheduled")
         match_count += 1
 
@@ -266,7 +294,7 @@ def scrape_matches(f, page: Page, team: dict):
 
 # ─── Tabelle scrapen ─────────────────────────────────────────────────────────
 
-def scrape_standing(f, page: Page, team: dict):
+def scrape_standing(f, data: dict, page: Page, team: dict):
     log.info("Lade Tabelle: %s", team["name"])
     url = team["url"].rstrip("/") + "#tab=tabelle"
     page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -299,7 +327,7 @@ def scrape_standing(f, page: Page, team: dict):
             gm        = re.match(r"(\d+):(\d+)", texts[6])
             gf, ga    = (int(gm.group(1)), int(gm.group(2))) if gm else (0, 0)
             points    = int(texts[7] or 0)
-            _upsert_standing(f, team["fussball_id"], competition, config.SAISON,
+            _upsert_standing(f, data, team["fussball_id"], competition, config.SAISON,
                              rank, team_name, played, wins, draws, losses, gf, ga, points)
         except (ValueError, IndexError):
             continue
@@ -312,6 +340,8 @@ def scrape_standing(f, page: Page, team: dict):
 def run_sync():
     log.info("=== Synchronisation gestartet ===")
 
+    data = {"generated_at": datetime.now().isoformat(), "teams": [], "matches": [], "standings": []}
+
     with open(SQL_FILE, "w", encoding="utf-8") as f:
         _write_header(f)
 
@@ -321,18 +351,23 @@ def run_sync():
 
             teams = scrape_teams(page)
             for team in teams:
-                _upsert_team(f, team["fussball_id"], team["name"], team["gender"])
+                _upsert_team(f, data, team["fussball_id"], team["name"], team["gender"])
 
             for team in teams:
                 try:
-                    scrape_matches(f, page, team)
-                    scrape_standing(f, page, team)
+                    scrape_matches(f, data, page, team)
+                    scrape_standing(f, data, page, team)
                 except Exception as e:
                     log.error("Fehler bei %s: %s", team["name"], e)
 
             browser.close()
 
+    with open(JSON_FILE, "w", encoding="utf-8") as jf:
+        json.dump(data, jf, ensure_ascii=False, indent=2)
+
     log.info("SQL-Datei generiert: %s", SQL_FILE)
+    log.info("JSON-Datei generiert: %s (%d Teams, %d Spiele, %d Tabellenplätze)",
+             JSON_FILE, len(data["teams"]), len(data["matches"]), len(data["standings"]))
     log.info("=== Synchronisation abgeschlossen ===")
 
 

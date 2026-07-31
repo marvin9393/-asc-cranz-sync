@@ -36,7 +36,7 @@ jobs:
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       # ── 4. Synchronisation ausführen ────────────────────────────────────
-      - name: Scraper ausführen (generiert SQL-Datei)
+      - name: Scraper ausführen (generiert SQL- und JSON-Datei)
         run: python scraper.py
 
       # ── 5. SQL auf Server importieren ───────────────────────────────────
@@ -54,6 +54,15 @@ jobs:
             -o IdentitiesOnly=yes \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "mysql -u ${{ secrets.DB_USER }} -p'${{ secrets.DB_PASSWORD }}' ${{ secrets.DB_NAME }} < /tmp/asc_data.sql && echo 'Import erfolgreich' && rm /tmp/asc_data.sql"
+
+      # ── 6. JSON auf Server kopieren ─────────────────────────────────────
+      - name: JSON-Datei auf Server kopieren
+        run: |
+          scp -i ~/.ssh/asc_actions \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            /tmp/asc_data.json \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.JSON_PATH }}
 
       - name: Debug-HTML hochladen (bei Fehler)
         if: always()
