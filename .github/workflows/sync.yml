@@ -55,21 +55,16 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "mysql -u ${{ secrets.DB_USER }} -p'${{ secrets.DB_PASSWORD }}' ${{ secrets.DB_NAME }} < /tmp/asc_data.sql && echo 'Import erfolgreich' && rm /tmp/asc_data.sql"
 
-      # ── 6. JSON in öffentlichen Webspace-Ordner kopieren ────────────────
-      - name: /data/-Ordner auf Server anlegen (falls nicht vorhanden)
+      # ── 6. matches.json ins Repository committen (öffentlich via GitHub) ─
+      - name: matches.json ins Repo schreiben und committen
         run: |
-          ssh -i ~/.ssh/asc_actions \
-            -o IdentitiesOnly=yes \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "mkdir -p ${{ secrets.WEB_ROOT }}/data"
-
-      - name: JSON-Datei in Webspace kopieren
-        run: |
-          scp -i ~/.ssh/asc_actions \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=no \
-            /tmp/asc_data.json \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.WEB_ROOT }}/data/matches.json
+          mkdir -p data
+          cp /tmp/asc_data.json data/matches.json
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/matches.json
+          git diff --cached --quiet || git commit -m "chore: matches.json aktualisiert [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          git push
 
       - name: Debug-HTML hochladen (bei Fehler)
         if: always()
