@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-01T06:04:00.759550",
+  "generated_at": "2026-08-02T06:07:35.529287",
   "teams": [
     {
       "fussball_id": "011MIAHS04000000VTVG0001VTR8C1K7",
@@ -1049,22 +1049,10 @@
       "status": "scheduled"
     },
     {
-      "fussball_match_id": "031G29CH9G000000VS5489BTVVG7L386",
-      "team_fussball_id": "02TD2NIOLO000000VS5489BSVTA87VEB",
-      "competition": "Bezirksfreundschaftsspiele",
-      "match_day": 1,
-      "match_date": "2026-08-01 13:30:00",
-      "home_team": "JFV A/​O/​B/​H/​H",
-      "away_team": "FSG 3 Meilen Altes Land",
-      "home_goals": null,
-      "away_goals": null,
-      "status": "scheduled"
-    },
-    {
       "fussball_match_id": "031KE94NQO000000VS5489BUVVKNMR0J",
       "team_fussball_id": "02TD2NIOLO000000VS5489BSVTA87VEB",
       "competition": "Bezirksfreundschaftsspiele",
-      "match_day": 2,
+      "match_day": 1,
       "match_date": "2026-08-03 19:30:00",
       "home_team": "FSG 3 Meilen Altes Land",
       "away_team": "TSV Apensen",
@@ -1076,7 +1064,7 @@
       "fussball_match_id": "031A4HEPK8000000VS5489BTVSK8S3O6",
       "team_fussball_id": "02TD2NIOLO000000VS5489BSVTA87VEB",
       "competition": "Bezirkspokal",
-      "match_day": 3,
+      "match_day": 2,
       "match_date": "2026-08-09 14:00:00",
       "home_team": "TVV Neu Wulmstorf",
       "away_team": "FSG 3 Meilen Altes Land",
