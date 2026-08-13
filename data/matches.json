@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-12T04:51:30.981367",
+  "generated_at": "2026-08-13T04:55:45.569501",
   "teams": [
     {
       "fussball_id": "011MIAHS04000000VTVG0001VTR8C1K7",
@@ -141,7 +141,7 @@
       "team_fussball_id": "011MIAHS04000000VTVG0001VTR8C1K7",
       "competition": "1.Kreisklasse",
       "match_day": 10,
-      "match_date": "2027-03-19 19:30:00",
+      "match_date": "2027-03-19 19:00:00",
       "home_team": "ASSG Hagen/​Fredenbeck/​Dollerner SC",
       "away_team": "ASSG Altes Land",
       "home_goals": null,
